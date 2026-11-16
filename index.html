@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor de Vuelos en Tiempo Real 2027 - Salidas desde MAD</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131c2e;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --price-tag: #22c55e;
+      --hotel-color: #f59e0b;
+      --total-color: #ec4899;
+      --border: #22324d;
+      --tag-diff: #a855f7;
+      --deal-badge: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 20px;
+    }
+    header {
+      max-width: 1350px;
+      margin: 0 auto 20px;
+      text-align: center;
+      padding: 10px;
+    }
+    .live-status-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 6px 18px;
+      border-radius: 30px;
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      background-color: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    header h1 {
+      font-size: 2.3rem;
+      margin-bottom: 6px;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+    .header-info-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .badge-info {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .badge-refresh {
+      background: #1e293b;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .panel-controls {
+      max-width: 1350px;
+      margin: 0 auto 25px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-item label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .filter-item input, .filter-item select {
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .filter-item input:focus, .filter-item select:focus {
+      border-color: var(--accent);
+    }
+    .checkbox-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 20px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .checkbox-label input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--tag-diff);
+      cursor: pointer;
+    }
+    .grid {
+      max-width: 1350px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+    .card.highlight-drop {
+      border-color: rgba(239, 68, 68, 0.6);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+    }
+    .card.highlight-new {
+      border-color: rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .dest-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    .dest-country {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .price-box {
+      text-align: right;
+    }
+    .price-flight {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--price-tag);
+      background: rgba(34, 197, 94, 0.12);
+      padding: 4px 10px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .price-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .continent-badge {
+      background: #1e293b;
+      color: var(--accent);
+    }
+    .duration-badge {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+    .diff-badge {
+      background: rgba(168, 85, 247, 0.18);
+      color: #c084fc;
+    }
+    .alert-badge {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    
+    /* Sección de Alojamiento Estimado */
+    .hotel-section {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 10px;
+      padding: 12px;
+      margin: 12px 0;
+    }
+    .hotel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--hotel-color);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .hotel-breakdown {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      margin-bottom: 8px;
+    }
+    .trip-total-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #090d16;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .trip-total-val {
+      color: var(--total-color);
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+    .hotel-links {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .hotel-btn {
+      flex: 1;
+      text-align: center;
+      background: #1e293b;
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: background 0.2s, color 0.2s;
+    }
+    .hotel-btn:hover {
+      background: var(--hotel-color);
+      color: #090d16;
+    }
+
+    /* Tramos de Vuelo */
+    .flight-leg {
+      background: #090d16;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 6px 0;
+      font-size: 0.85rem;
+      border-left: 3px solid var(--accent);
+    }
+    .flight-leg.return {
+      border-left-color: #a855f7;
+    }
+    .leg-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .leg-airline {
+      color: white;
+      font-weight: 600;
+    }
+    .airline-direct-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.75rem;
+      margin-left: 6px;
+      border-bottom: 1px dashed var(--accent);
+    }
+    .airline-direct-link:hover {
+      color: white;
+    }
+    .leg-times {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 500;
+    }
+    .time-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: white;
+    }
+    .leg-duration {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Comparar en Múltiples Buscadores */
+    .multi-search {
+      margin-top: 14px;
+    }
+    .multi-search-title {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .provider-btn {
+      display: block;
+      text-align: center;
+      background: #1e293b;
+      color: #94a3b8;
+      text-decoration: none;
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      transition: background 0.2s, color 0.2s;
+    }
+    .provider-btn.google:hover { background: #4285f4; color: white; }
+    .provider-btn.skyscanner:hover { background: #00a698; color: white; }
+    .provider-btn.kayak:hover { background: #ff690f; color: white; }
+    .provider-btn.kiwi:hover { background: #00a99d; color: white; }
+    .provider-btn.momondo:hover { background: #e01764; color: white; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="live-status-bar">
+      <div class="pulse-dot"></div>
+      <span>Monitor en Tiempo Real Activo</span>
+      <span style="color:var(--text-muted); font-size:0.75rem;">| Actualizado: 16/11/2026 18:16:04</span>
+    </div>
+
+    <h1>✈️ Monitor Mundial de Vuelos <span>2027</span></h1>
+    <p>Rastreo continuo de ofertas con avisos al móvil y estimación hotelera desde <strong>MAD</strong></p>
+    
+    <div class="header-info-row">
+      <div class="badge-info">⏱️ Estancia: 5 a 9 días (~1 semana +/- 2 días)</div>
+      <div class="badge-refresh">🔄 Auto-refresco en: <strong id="timerSec">120s</strong></div>
+    </div>
+  </header>
+
+  <div class="panel-controls">
+    <div class="panel-title">
+      <span>⚙️ Filtros y Opciones de Comparación</span>
+      <span id="counterText" style="color: var(--accent);">Mostrando 27 opciones</span>
+    </div>
+
+    <!-- Primera fila: Búsqueda, Continente, Días y Criterio de Orden -->
+    <div class="filter-grid">
+      <div class="filter-item">
+        <label>Buscar destino o aerolínea</label>
+        <input type="text" id="searchInput" placeholder="Ej: Roma, Tokio, Ryanair..." oninput="filterFlights()">
+      </div>
+
+      <div class="filter-item">
+        <label>Continente</label>
+        <select id="continentFilter" onchange="filterFlights()">
+          <option value="ALL">Todos los continentes</option>
+          <option value="Europa">Europa</option>
+          <option value="Latinoamérica">Latinoamérica</option>
+          <option value="Norteamérica">Norteamérica</option>
+          <option value="Asia">Asia</option>
+          <option value="Medio Oriente">Medio Oriente</option>
+          <option value="África">África</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Ordenar resultados por:</label>
+        <select id="sortCriteria" onchange="filterFlights()">
+          <option value="flight_price">Vuelo más barato (por defecto)</option>
+          <option value="trip_total">Total viaje (Vuelo + Hotel estimado)</option>
+          <option value="hotel_price">Alojamiento más asequible/noche</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Presupuesto Vuelo Máx (€)</label>
+        <input type="number" id="maxFlightPrice" placeholder="Sin límite" oninput="filterFlights()">
+      </div>
+
+      <div class="filter-item">
+        <label>Presupuesto Total Máx (Vuelo+Hotel)</label>
+        <input type="number" id="maxTripPrice" placeholder="Sin límite" oninput="filterFlights()">
+      </div>
+    </div>
+
+    <!-- Segunda fila: Horarios y tope de horas -->
+    <div class="filter-grid">
+      <div class="filter-item">
+        <label>⏱️ Horas Máx Vuelo IDA</label>
+        <input type="number" step="0.5" id="maxHoursOutbound" placeholder="Ej: 4.5 (vacío = sin tope)" oninput="filterFlights()">
+      </div>
+
+      <div class="filter-item">
+        <label>⏱️ Horas Máx Vuelo VUELTA</label>
+        <input type="number" step="0.5" id="maxHoursReturn" placeholder="Ej: 5.0 (vacío = sin tope)" oninput="filterFlights()">
+      </div>
+
+      <div class="filter-item">
+        <label>🌅 Franja Salida IDA</label>
+        <select id="outDepWindow" onchange="filterFlights()">
+          <option value="ALL">Cualquier hora de salida</option>
+          <option value="morning">Mañana (06:00 - 12:00)</option>
+          <option value="midday">Mediodía (12:00 - 16:00)</option>
+          <option value="afternoon">Tarde (16:00 - 20:00)</option>
+          <option value="night">Noche (20:00 - 24:00)</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>🌇 Franja Salida VUELTA</label>
+        <select id="retDepWindow" onchange="filterFlights()">
+          <option value="ALL">Cualquier hora de regreso</option>
+          <option value="after_16">Regreso por la tarde (> 16:00)</option>
+          <option value="after_18">Regreso por la noche (> 18:00)</option>
+          <option value="morning">Regreso por la mañana (< 12:00)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tercera fila: Checkbox aerolíneas distintas y chollos -->
+    <div class="checkbox-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="requireDiffAirlines" onchange="filterFlights()">
+        <span>✨ <strong>Exigir compañías distintas</strong> en ida y vuelta (ej. Ida Ryanair, Vuelta Vueling)</span>
+      </label>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="onlyDeals" onchange="filterFlights()">
+        <span>🔥 <strong>Solo bajadas de precio / nuevos chollos</strong></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="grid" id="flightGrid"></div>
+
+  <script>
+    let flights = [{"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "OPO", "dest_city": "Oporto", "dest_country": "Portugal", "dest_flag": "🇵🇹", "continent": "Europa", "departure_date": "2027-03-10", "return_date": "2027-03-15", "duration_days": 5, "outbound_dep_time": "09:15", "outbound_arr_time": "10:35", "outbound_duration_hours": 1.33, "outbound_duration_str": "1h 19m", "outbound_airline": "Ryanair", "return_dep_time": "18:40", "return_arr_time": "20:00", "return_duration_hours": 1.33, "return_duration_str": "1h 19m", "return_airline": "EasyJet", "different_airlines": true, "price": 28.0, "currency": "EUR", "hotel_price_per_night": 50, "hotel_nights": 5, "hotel_total_est": 250, "hotel_tier": "Económico-Medio", "hotel_note": "Oporto muy asequible", "trip_total_est": 278.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+OPO+on+2027-03-10+through+2027-03-15", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/opo/270310/270315/", "kayak_link": "https://www.kayak.es/flights/MAD-OPO/2027-03-10/2027-03-15?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/opo/2027-03-10/2027-03-15", "momondo_link": "https://www.momondo.es/flight-search/MAD-OPO/2027-03-10/2027-03-15", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.easyjet.com/es", "booking_link": "https://www.booking.com/searchresults.html?ss=Oporto%2C%20Portugal&checkin=2027-03-10&checkout=2027-03-15&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Oporto%2C%20Portugal/homes?checkin=2027-03-10&checkout=2027-03-15&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Oporto%2C%20Portugal?dates=2027-03-10_2027-03-15", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "IBZ", "dest_city": "Ibiza", "dest_country": "España", "dest_flag": "🇪🇸", "continent": "Europa", "departure_date": "2027-04-14", "return_date": "2027-04-20", "duration_days": 6, "outbound_dep_time": "07:30", "outbound_arr_time": "08:45", "outbound_duration_hours": 1.25, "outbound_duration_str": "1h 15m", "outbound_airline": "Vueling", "return_dep_time": "21:15", "return_arr_time": "22:30", "return_duration_hours": 1.25, "return_duration_str": "1h 15m", "return_airline": "Ryanair", "different_airlines": true, "price": 32.0, "currency": "EUR", "hotel_price_per_night": 110, "hotel_nights": 6, "hotel_total_est": 660, "hotel_tier": "Alto", "hotel_note": "Ibiza (varía según temporada)", "trip_total_est": 692.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+IBZ+on+2027-04-14+through+2027-04-20", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/ibz/270414/270420/", "kayak_link": "https://www.kayak.es/flights/MAD-IBZ/2027-04-14/2027-04-20?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/ibz/2027-04-14/2027-04-20", "momondo_link": "https://www.momondo.es/flight-search/MAD-IBZ/2027-04-14/2027-04-20", "outbound_airline_url": "https://www.vueling.com/es", "return_airline_url": "https://www.ryanair.com/es/es", "booking_link": "https://www.booking.com/searchresults.html?ss=Ibiza%2C%20Espa%C3%B1a&checkin=2027-04-14&checkout=2027-04-20&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Ibiza%2C%20Espa%C3%B1a/homes?checkin=2027-04-14&checkout=2027-04-20&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Ibiza%2C%20Espa%C3%B1a?dates=2027-04-14_2027-04-20", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "MRS", "dest_city": "Marsella", "dest_country": "Francia", "dest_flag": "🇫🇷", "continent": "Europa", "departure_date": "2027-02-18", "return_date": "2027-02-25", "duration_days": 7, "outbound_dep_time": "11:20", "outbound_arr_time": "13:05", "outbound_duration_hours": 1.75, "outbound_duration_str": "1h 45m", "outbound_airline": "Ryanair", "return_dep_time": "16:45", "return_arr_time": "18:30", "return_duration_hours": 1.75, "return_duration_str": "1h 45m", "return_airline": "Volotea", "different_airlines": true, "price": 39.0, "currency": "EUR", "hotel_price_per_night": 70, "hotel_nights": 7, "hotel_total_est": 490, "hotel_tier": "Medio", "hotel_note": "Marsella", "trip_total_est": 529.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+MRS+on+2027-02-18+through+2027-02-25", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/mrs/270218/270225/", "kayak_link": "https://www.kayak.es/flights/MAD-MRS/2027-02-18/2027-02-25?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/mrs/2027-02-18/2027-02-25", "momondo_link": "https://www.momondo.es/flight-search/MAD-MRS/2027-02-18/2027-02-25", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.volotea.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Marsella%2C%20Francia&checkin=2027-02-18&checkout=2027-02-25&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Marsella%2C%20Francia/homes?checkin=2027-02-18&checkout=2027-02-25&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Marsella%2C%20Francia?dates=2027-02-18_2027-02-25", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "LIS", "dest_city": "Lisboa", "dest_country": "Portugal", "dest_flag": "🇵🇹", "continent": "Europa", "departure_date": "2027-05-05", "return_date": "2027-05-13", "duration_days": 8, "outbound_dep_time": "08:00", "outbound_arr_time": "09:20", "outbound_duration_hours": 1.33, "outbound_duration_str": "1h 19m", "outbound_airline": "TAP Portugal", "return_dep_time": "19:30", "return_arr_time": "20:50", "return_duration_hours": 1.33, "return_duration_str": "1h 19m", "return_airline": "EasyJet", "different_airlines": true, "price": 44.0, "currency": "EUR", "hotel_price_per_night": 65, "hotel_nights": 8, "hotel_total_est": 520, "hotel_tier": "Medio", "hotel_note": "Lisboa centro", "trip_total_est": 564.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+LIS+on+2027-05-05+through+2027-05-13", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/lis/270505/270513/", "kayak_link": "https://www.kayak.es/flights/MAD-LIS/2027-05-05/2027-05-13?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/lis/2027-05-05/2027-05-13", "momondo_link": "https://www.momondo.es/flight-search/MAD-LIS/2027-05-05/2027-05-13", "outbound_airline_url": "https://www.flytap.com/es-es/", "return_airline_url": "https://www.easyjet.com/es", "booking_link": "https://www.booking.com/searchresults.html?ss=Lisboa%2C%20Portugal&checkin=2027-05-05&checkout=2027-05-13&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Lisboa%2C%20Portugal/homes?checkin=2027-05-05&checkout=2027-05-13&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Lisboa%2C%20Portugal?dates=2027-05-05_2027-05-13", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "CRL", "dest_city": "Bruselas (Charleroi)", "dest_country": "Bélgica", "dest_flag": "🇧🇪", "continent": "Europa", "departure_date": "2027-03-24", "return_date": "2027-04-05", "duration_days": 9, "outbound_dep_time": "06:45", "outbound_arr_time": "09:10", "outbound_duration_hours": 2.41, "outbound_duration_str": "2h 24m", "outbound_airline": "Ryanair", "return_dep_time": "20:10", "return_arr_time": "22:35", "return_duration_hours": 2.41, "return_duration_str": "2h 24m", "return_airline": "Brussels Airlines", "different_airlines": true, "price": 49.0, "currency": "EUR", "hotel_price_per_night": 65, "hotel_nights": 9, "hotel_total_est": 585, "hotel_tier": "Medio", "hotel_note": "Charleroi / Valonia", "trip_total_est": 634.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+CRL+on+2027-03-24+through+2027-04-05", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/crl/270324/270405/", "kayak_link": "https://www.kayak.es/flights/MAD-CRL/2027-03-24/2027-04-05?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/crl/2027-03-24/2027-04-05", "momondo_link": "https://www.momondo.es/flight-search/MAD-CRL/2027-03-24/2027-04-05", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.brusselsairlines.com/es/es/homepage", "booking_link": "https://www.booking.com/searchresults.html?ss=Bruselas%20%28Charleroi%29%2C%20B%C3%A9lgica&checkin=2027-03-24&checkout=2027-04-05&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Bruselas%20%28Charleroi%29%2C%20B%C3%A9lgica/homes?checkin=2027-03-24&checkout=2027-04-05&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Bruselas%20%28Charleroi%29%2C%20B%C3%A9lgica?dates=2027-03-24_2027-04-05", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BGY", "dest_city": "Milán (Bérgamo)", "dest_country": "Italia", "dest_flag": "🇮🇹", "continent": "Europa", "departure_date": "2027-04-21", "return_date": "2027-04-27", "duration_days": 6, "outbound_dep_time": "10:15", "outbound_arr_time": "12:35", "outbound_duration_hours": 2.33, "outbound_duration_str": "2h 19m", "outbound_airline": "Ryanair", "return_dep_time": "17:20", "return_arr_time": "19:40", "return_duration_hours": 2.33, "return_duration_str": "2h 19m", "return_airline": "Wizz Air", "different_airlines": true, "price": 52.0, "currency": "EUR", "hotel_price_per_night": 65, "hotel_nights": 6, "hotel_total_est": 390, "hotel_tier": "Medio", "hotel_note": "Bérgamo / Milán norte", "trip_total_est": 442.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BGY+on+2027-04-21+through+2027-04-27", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bgy/270421/270427/", "kayak_link": "https://www.kayak.es/flights/MAD-BGY/2027-04-21/2027-04-27?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bgy/2027-04-21/2027-04-27", "momondo_link": "https://www.momondo.es/flight-search/MAD-BGY/2027-04-21/2027-04-27", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://wizzair.com/es-es", "booking_link": "https://www.booking.com/searchresults.html?ss=Mil%C3%A1n%20%28B%C3%A9rgamo%29%2C%20Italia&checkin=2027-04-21&checkout=2027-04-27&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Mil%C3%A1n%20%28B%C3%A9rgamo%29%2C%20Italia/homes?checkin=2027-04-21&checkout=2027-04-27&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Mil%C3%A1n%20%28B%C3%A9rgamo%29%2C%20Italia?dates=2027-04-21_2027-04-27", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "LGW", "dest_city": "Londres (Gatwick)", "dest_country": "Reino Unido", "dest_flag": "🇬🇧", "continent": "Europa", "departure_date": "2027-05-12", "return_date": "2027-05-19", "duration_days": 7, "outbound_dep_time": "08:45", "outbound_arr_time": "10:15", "outbound_duration_hours": 2.5, "outbound_duration_str": "2h 30m", "outbound_airline": "EasyJet", "return_dep_time": "18:00", "return_arr_time": "21:30", "return_duration_hours": 2.5, "return_duration_str": "2h 30m", "return_airline": "British Airways", "different_airlines": true, "price": 58.0, "currency": "EUR", "hotel_price_per_night": 125, "hotel_nights": 7, "hotel_total_est": 875, "hotel_tier": "Alto", "hotel_note": "Londres", "trip_total_est": 933.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+LGW+on+2027-05-12+through+2027-05-19", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/lgw/270512/270519/", "kayak_link": "https://www.kayak.es/flights/MAD-LGW/2027-05-12/2027-05-19?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/lgw/2027-05-12/2027-05-19", "momondo_link": "https://www.momondo.es/flight-search/MAD-LGW/2027-05-12/2027-05-19", "outbound_airline_url": "https://www.easyjet.com/es", "return_airline_url": "https://www.britishairways.com/travel/home/public/es_es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Londres%20%28Gatwick%29%2C%20Reino%20Unido&checkin=2027-05-12&checkout=2027-05-19&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Londres%20%28Gatwick%29%2C%20Reino%20Unido/homes?checkin=2027-05-12&checkout=2027-05-19&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Londres%20%28Gatwick%29%2C%20Reino%20Unido?dates=2027-05-12_2027-05-19", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BVA", "dest_city": "París (Beauvais)", "dest_country": "Francia", "dest_flag": "🇫🇷", "continent": "Europa", "departure_date": "2027-06-02", "return_date": "2027-06-10", "duration_days": 8, "outbound_dep_time": "09:00", "outbound_arr_time": "11:10", "outbound_duration_hours": 2.16, "outbound_duration_str": "2h 09m", "outbound_airline": "Ryanair", "return_dep_time": "19:40", "return_arr_time": "21:50", "return_duration_hours": 2.16, "return_duration_str": "2h 09m", "return_airline": "Vueling", "different_airlines": true, "price": 64.0, "currency": "EUR", "hotel_price_per_night": 100, "hotel_nights": 8, "hotel_total_est": 800, "hotel_tier": "Medio-Alto", "hotel_note": "París y alrededores", "trip_total_est": 864.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BVA+on+2027-06-02+through+2027-06-10", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bva/270602/270610/", "kayak_link": "https://www.kayak.es/flights/MAD-BVA/2027-06-02/2027-06-10?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bva/2027-06-02/2027-06-10", "momondo_link": "https://www.momondo.es/flight-search/MAD-BVA/2027-06-02/2027-06-10", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.vueling.com/es", "booking_link": "https://www.booking.com/searchresults.html?ss=Par%C3%ADs%20%28Beauvais%29%2C%20Francia&checkin=2027-06-02&checkout=2027-06-10&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Par%C3%ADs%20%28Beauvais%29%2C%20Francia/homes?checkin=2027-06-02&checkout=2027-06-10&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Par%C3%ADs%20%28Beauvais%29%2C%20Francia?dates=2027-06-02_2027-06-10", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "RAK", "dest_city": "Marrakech", "dest_country": "Marruecos", "dest_flag": "🇲🇦", "continent": "África", "departure_date": "2027-04-07", "return_date": "2027-04-12", "duration_days": 5, "outbound_dep_time": "10:30", "outbound_arr_time": "12:45", "outbound_duration_hours": 2.25, "outbound_duration_str": "2h 15m", "outbound_airline": "Ryanair", "return_dep_time": "14:15", "return_arr_time": "16:30", "return_duration_hours": 2.25, "return_duration_str": "2h 15m", "return_airline": "Iberia Express", "different_airlines": true, "price": 75.0, "currency": "EUR", "hotel_price_per_night": 40, "hotel_nights": 5, "hotel_total_est": 200, "hotel_tier": "Muy Económico", "hotel_note": "Marrakech riads y hoteles asequibles", "trip_total_est": 275.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+RAK+on+2027-04-07+through+2027-04-12", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/rak/270407/270412/", "kayak_link": "https://www.kayak.es/flights/MAD-RAK/2027-04-07/2027-04-12?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/rak/2027-04-07/2027-04-12", "momondo_link": "https://www.momondo.es/flight-search/MAD-RAK/2027-04-07/2027-04-12", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.iberia.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Marrakech%2C%20Marruecos&checkin=2027-04-07&checkout=2027-04-12&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Marrakech%2C%20Marruecos/homes?checkin=2027-04-07&checkout=2027-04-12&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Marrakech%2C%20Marruecos?dates=2027-04-07_2027-04-12", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "PRG", "dest_city": "Praga", "dest_country": "República Checa", "dest_flag": "🇨🇿", "continent": "Europa", "departure_date": "2027-05-19", "return_date": "2027-05-26", "duration_days": 7, "outbound_dep_time": "07:15", "outbound_arr_time": "10:15", "outbound_duration_hours": 3.0, "outbound_duration_str": "3h 00m", "outbound_airline": "Smartwings", "return_dep_time": "16:30", "return_arr_time": "19:30", "return_duration_hours": 3.0, "return_duration_str": "3h 00m", "return_airline": "Eurowings", "different_airlines": true, "price": 89.0, "currency": "EUR", "hotel_price_per_night": 60, "hotel_nights": 7, "hotel_total_est": 420, "hotel_tier": "Económico-Medio", "hotel_note": "Praga excelente calidad/precio", "trip_total_est": 509.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+PRG+on+2027-05-19+through+2027-05-26", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/prg/270519/270526/", "kayak_link": "https://www.kayak.es/flights/MAD-PRG/2027-05-19/2027-05-26?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/prg/2027-05-19/2027-05-26", "momondo_link": "https://www.momondo.es/flight-search/MAD-PRG/2027-05-19/2027-05-26", "outbound_airline_url": "https://www.smartwings.com/es/", "return_airline_url": "https://www.eurowings.com/es.html", "booking_link": "https://www.booking.com/searchresults.html?ss=Praga%2C%20Rep%C3%BAblica%20Checa&checkin=2027-05-19&checkout=2027-05-26&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Praga%2C%20Rep%C3%BAblica%20Checa/homes?checkin=2027-05-19&checkout=2027-05-26&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Praga%2C%20Rep%C3%BAblica%20Checa?dates=2027-05-19_2027-05-26", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BUD", "dest_city": "Budapest", "dest_country": "Hungría", "dest_flag": "🇭🇺", "continent": "Europa", "departure_date": "2027-06-09", "return_date": "2027-06-15", "duration_days": 6, "outbound_dep_time": "14:30", "outbound_arr_time": "17:40", "outbound_duration_hours": 3.16, "outbound_duration_str": "3h 09m", "outbound_airline": "Wizz Air", "return_dep_time": "11:00", "return_arr_time": "14:10", "return_duration_hours": 3.16, "return_duration_str": "3h 09m", "return_airline": "Ryanair", "different_airlines": true, "price": 95.0, "currency": "EUR", "hotel_price_per_night": 50, "hotel_nights": 6, "hotel_total_est": 300, "hotel_tier": "Económico", "hotel_note": "Budapest muy asequible", "trip_total_est": 395.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BUD+on+2027-06-09+through+2027-06-15", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bud/270609/270615/", "kayak_link": "https://www.kayak.es/flights/MAD-BUD/2027-06-09/2027-06-15?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bud/2027-06-09/2027-06-15", "momondo_link": "https://www.momondo.es/flight-search/MAD-BUD/2027-06-09/2027-06-15", "outbound_airline_url": "https://wizzair.com/es-es", "return_airline_url": "https://www.ryanair.com/es/es", "booking_link": "https://www.booking.com/searchresults.html?ss=Budapest%2C%20Hungr%C3%ADa&checkin=2027-06-09&checkout=2027-06-15&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Budapest%2C%20Hungr%C3%ADa/homes?checkin=2027-06-09&checkout=2027-06-15&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Budapest%2C%20Hungr%C3%ADa?dates=2027-06-09_2027-06-15", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "KRK", "dest_city": "Cracovia", "dest_country": "Polonia", "dest_flag": "🇵🇱", "continent": "Europa", "departure_date": "2027-09-15", "return_date": "2027-09-23", "duration_days": 8, "outbound_dep_time": "08:20", "outbound_arr_time": "11:50", "outbound_duration_hours": 3.5, "outbound_duration_str": "3h 30m", "outbound_airline": "Ryanair", "return_dep_time": "18:15", "return_arr_time": "21:45", "return_duration_hours": 3.5, "return_duration_str": "3h 30m", "return_airline": "Wizz Air", "different_airlines": true, "price": 98.0, "currency": "EUR", "hotel_price_per_night": 45, "hotel_nights": 8, "hotel_total_est": 360, "hotel_tier": "Económico", "hotel_note": "Cracovia gran valor", "trip_total_est": 458.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+KRK+on+2027-09-15+through+2027-09-23", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/krk/270915/270923/", "kayak_link": "https://www.kayak.es/flights/MAD-KRK/2027-09-15/2027-09-23?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/krk/2027-09-15/2027-09-23", "momondo_link": "https://www.momondo.es/flight-search/MAD-KRK/2027-09-15/2027-09-23", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://wizzair.com/es-es", "booking_link": "https://www.booking.com/searchresults.html?ss=Cracovia%2C%20Polonia&checkin=2027-09-15&checkout=2027-09-23&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Cracovia%2C%20Polonia/homes?checkin=2027-09-15&checkout=2027-09-23&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Cracovia%2C%20Polonia?dates=2027-09-15_2027-09-23", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "FCO", "dest_city": "Roma (Fiumicino)", "dest_country": "Italia", "dest_flag": "🇮🇹", "continent": "Europa", "departure_date": "2027-06-16", "return_date": "2027-06-23", "duration_days": 7, "outbound_dep_time": "06:30", "outbound_arr_time": "09:00", "outbound_duration_hours": 2.5, "outbound_duration_str": "2h 30m", "outbound_airline": "Ryanair", "return_dep_time": "20:45", "return_arr_time": "23:15", "return_duration_hours": 2.5, "return_duration_str": "2h 30m", "return_airline": "ITA Airways", "different_airlines": true, "price": 105.0, "currency": "EUR", "hotel_price_per_night": 85, "hotel_nights": 7, "hotel_total_est": 595, "hotel_tier": "Medio", "hotel_note": "Roma", "trip_total_est": 700.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+FCO+on+2027-06-16+through+2027-06-23", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/fco/270616/270623/", "kayak_link": "https://www.kayak.es/flights/MAD-FCO/2027-06-16/2027-06-23?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/fco/2027-06-16/2027-06-23", "momondo_link": "https://www.momondo.es/flight-search/MAD-FCO/2027-06-16/2027-06-23", "outbound_airline_url": "https://www.ryanair.com/es/es", "return_airline_url": "https://www.ita-airways.com/es_es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Roma%20%28Fiumicino%29%2C%20Italia&checkin=2027-06-16&checkout=2027-06-23&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Roma%20%28Fiumicino%29%2C%20Italia/homes?checkin=2027-06-16&checkout=2027-06-23&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Roma%20%28Fiumicino%29%2C%20Italia?dates=2027-06-16_2027-06-23", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "ATH", "dest_city": "Atenas", "dest_country": "Grecia", "dest_flag": "🇬🇷", "continent": "Europa", "departure_date": "2027-09-22", "return_date": "2027-10-03", "duration_days": 9, "outbound_dep_time": "11:45", "outbound_arr_time": "16:15", "outbound_duration_hours": 3.5, "outbound_duration_str": "3h 30m", "outbound_airline": "Aegean Airlines", "return_dep_time": "17:30", "return_arr_time": "20:00", "return_duration_hours": 3.5, "return_duration_str": "3h 30m", "return_airline": "Iberia", "different_airlines": true, "price": 120.0, "currency": "EUR", "hotel_price_per_night": 60, "hotel_nights": 9, "hotel_total_est": 540, "hotel_tier": "Económico-Medio", "hotel_note": "Atenas", "trip_total_est": 660.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+ATH+on+2027-09-22+through+2027-10-03", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/ath/270922/271003/", "kayak_link": "https://www.kayak.es/flights/MAD-ATH/2027-09-22/2027-10-03?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/ath/2027-09-22/2027-10-03", "momondo_link": "https://www.momondo.es/flight-search/MAD-ATH/2027-09-22/2027-10-03", "outbound_airline_url": "https://es.aegeanair.com/", "return_airline_url": "https://www.iberia.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Atenas%2C%20Grecia&checkin=2027-09-22&checkout=2027-10-03&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Atenas%2C%20Grecia/homes?checkin=2027-09-22&checkout=2027-10-03&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Atenas%2C%20Grecia?dates=2027-09-22_2027-10-03", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "CPH", "dest_city": "Copenhague", "dest_country": "Dinamarca", "dest_flag": "🇩🇰", "continent": "Europa", "departure_date": "2027-07-07", "return_date": "2027-07-13", "duration_days": 6, "outbound_dep_time": "12:10", "outbound_arr_time": "15:35", "outbound_duration_hours": 3.41, "outbound_duration_str": "3h 24m", "outbound_airline": "Norwegian", "return_dep_time": "19:00", "return_arr_time": "22:25", "return_duration_hours": 3.41, "return_duration_str": "3h 24m", "return_airline": "SAS", "different_airlines": true, "price": 135.0, "currency": "EUR", "hotel_price_per_night": 125, "hotel_nights": 6, "hotel_total_est": 750, "hotel_tier": "Alto", "hotel_note": "Copenhague", "trip_total_est": 885.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+CPH+on+2027-07-07+through+2027-07-13", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/cph/270707/270713/", "kayak_link": "https://www.kayak.es/flights/MAD-CPH/2027-07-07/2027-07-13?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/cph/2027-07-07/2027-07-13", "momondo_link": "https://www.momondo.es/flight-search/MAD-CPH/2027-07-07/2027-07-13", "outbound_airline_url": "https://www.norwegian.com/es/", "return_airline_url": "https://www.flysas.com/es-es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Copenhague%2C%20Dinamarca&checkin=2027-07-07&checkout=2027-07-13&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Copenhague%2C%20Dinamarca/homes?checkin=2027-07-07&checkout=2027-07-13&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Copenhague%2C%20Dinamarca?dates=2027-07-07_2027-07-13", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "KEF", "dest_city": "Reikiavik", "dest_country": "Islandia", "dest_flag": "🇮🇸", "continent": "Europa", "departure_date": "2027-08-18", "return_date": "2027-08-26", "duration_days": 8, "outbound_dep_time": "21:30", "outbound_arr_time": "00:15", "outbound_duration_hours": 4.75, "outbound_duration_str": "4h 45m", "outbound_airline": "Play Airlines", "return_dep_time": "14:00", "return_arr_time": "18:45", "return_duration_hours": 4.75, "return_duration_str": "4h 45m", "return_airline": "Iberia Express", "different_airlines": true, "price": 185.0, "currency": "EUR", "hotel_price_per_night": 140, "hotel_nights": 8, "hotel_total_est": 1120, "hotel_tier": "Alto", "hotel_note": "Islandia / Reikiavik", "trip_total_est": 1305.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+KEF+on+2027-08-18+through+2027-08-26", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/kef/270818/270826/", "kayak_link": "https://www.kayak.es/flights/MAD-KEF/2027-08-18/2027-08-26?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/kef/2027-08-18/2027-08-26", "momondo_link": "https://www.momondo.es/flight-search/MAD-KEF/2027-08-18/2027-08-26", "outbound_airline_url": "https://www.flyplay.com/es-es", "return_airline_url": "https://www.iberia.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Reikiavik%2C%20Islandia&checkin=2027-08-18&checkout=2027-08-26&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Reikiavik%2C%20Islandia/homes?checkin=2027-08-18&checkout=2027-08-26&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Reikiavik%2C%20Islandia?dates=2027-08-18_2027-08-26", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "CAI", "dest_city": "El Cairo", "dest_country": "Egipto", "dest_flag": "🇪🇬", "continent": "África", "departure_date": "2027-03-15", "return_date": "2027-03-23", "duration_days": 8, "outbound_dep_time": "15:45", "outbound_arr_time": "21:15", "outbound_duration_hours": 4.5, "outbound_duration_str": "4h 30m", "outbound_airline": "EgyptAir", "return_dep_time": "09:30", "return_arr_time": "13:00", "return_duration_hours": 4.5, "return_duration_str": "4h 30m", "return_airline": "Vueling", "different_airlines": true, "price": 210.0, "currency": "EUR", "hotel_price_per_night": 35, "hotel_nights": 8, "hotel_total_est": 280, "hotel_tier": "Muy Económico", "hotel_note": "El Cairo", "trip_total_est": 490.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+CAI+on+2027-03-15+through+2027-03-23", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/cai/270315/270323/", "kayak_link": "https://www.kayak.es/flights/MAD-CAI/2027-03-15/2027-03-23?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/cai/2027-03-15/2027-03-23", "momondo_link": "https://www.momondo.es/flight-search/MAD-CAI/2027-03-15/2027-03-23", "outbound_airline_url": "https://www.egyptair.com/es/", "return_airline_url": "https://www.vueling.com/es", "booking_link": "https://www.booking.com/searchresults.html?ss=El%20Cairo%2C%20Egipto&checkin=2027-03-15&checkout=2027-03-23&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/El%20Cairo%2C%20Egipto/homes?checkin=2027-03-15&checkout=2027-03-23&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/El%20Cairo%2C%20Egipto?dates=2027-03-15_2027-03-23", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BOS", "dest_city": "Boston", "dest_country": "Estados Unidos", "dest_flag": "🇺🇸", "continent": "Norteamérica", "departure_date": "2027-03-02", "return_date": "2027-03-09", "duration_days": 7, "outbound_dep_time": "12:30", "outbound_arr_time": "15:00", "outbound_duration_hours": 7.5, "outbound_duration_str": "7h 30m", "outbound_airline": "Level", "return_dep_time": "17:15", "return_arr_time": "06:20", "return_duration_hours": 7.08, "return_duration_str": "7h 04m", "return_airline": "Iberia", "different_airlines": true, "price": 290.0, "currency": "EUR", "hotel_price_per_night": 145, "hotel_nights": 7, "hotel_total_est": 1015, "hotel_tier": "Alto", "hotel_note": "Boston", "trip_total_est": 1305.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BOS+on+2027-03-02+through+2027-03-09", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bos/270302/270309/", "kayak_link": "https://www.kayak.es/flights/MAD-BOS/2027-03-02/2027-03-09?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bos/2027-03-02/2027-03-09", "momondo_link": "https://www.momondo.es/flight-search/MAD-BOS/2027-03-02/2027-03-09", "outbound_airline_url": "https://www.flylevel.com/", "return_airline_url": "https://www.iberia.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Boston%2C%20Estados%20Unidos&checkin=2027-03-02&checkout=2027-03-09&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Boston%2C%20Estados%20Unidos/homes?checkin=2027-03-02&checkout=2027-03-09&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Boston%2C%20Estados%20Unidos?dates=2027-03-02_2027-03-09", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "JFK", "dest_city": "Nueva York (JFK)", "dest_country": "Estados Unidos", "dest_flag": "🇺🇸", "continent": "Norteamérica", "departure_date": "2027-04-06", "return_date": "2027-04-14", "duration_days": 8, "outbound_dep_time": "10:15", "outbound_arr_time": "13:00", "outbound_duration_hours": 8.75, "outbound_duration_str": "8h 45m", "outbound_airline": "Air Europa", "return_dep_time": "19:30", "return_arr_time": "08:50", "return_duration_hours": 7.33, "return_duration_str": "7h 19m", "return_airline": "Delta Air Lines", "different_airlines": true, "price": 315.0, "currency": "EUR", "hotel_price_per_night": 165, "hotel_nights": 8, "hotel_total_est": 1320, "hotel_tier": "Muy Alto", "hotel_note": "Nueva York", "trip_total_est": 1635.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+JFK+on+2027-04-06+through+2027-04-14", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/jfk/270406/270414/", "kayak_link": "https://www.kayak.es/flights/MAD-JFK/2027-04-06/2027-04-14?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/jfk/2027-04-06/2027-04-14", "momondo_link": "https://www.momondo.es/flight-search/MAD-JFK/2027-04-06/2027-04-14", "outbound_airline_url": "https://www.aireuropa.com/es/es/home", "return_airline_url": "https://es.delta.com/", "booking_link": "https://www.booking.com/searchresults.html?ss=Nueva%20York%20%28JFK%29%2C%20Estados%20Unidos&checkin=2027-04-06&checkout=2027-04-14&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Nueva%20York%20%28JFK%29%2C%20Estados%20Unidos/homes?checkin=2027-04-06&checkout=2027-04-14&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Nueva%20York%20%28JFK%29%2C%20Estados%20Unidos?dates=2027-04-06_2027-04-14", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "DXB", "dest_city": "Dubái", "dest_country": "Emiratos Árabes Unidos", "dest_flag": "🇦🇪", "continent": "Medio Oriente", "departure_date": "2027-04-12", "return_date": "2027-04-19", "duration_days": 7, "outbound_dep_time": "14:25", "outbound_arr_time": "23:55", "outbound_duration_hours": 6.5, "outbound_duration_str": "6h 30m", "outbound_airline": "Emirates", "return_dep_time": "07:35", "return_arr_time": "13:20", "return_duration_hours": 7.75, "return_duration_str": "7h 45m", "return_airline": "Qatar Airways", "different_airlines": true, "price": 320.0, "currency": "EUR", "hotel_price_per_night": 95, "hotel_nights": 7, "hotel_total_est": 665, "hotel_tier": "Medio-Alto", "hotel_note": "Dubái hoteles modernos", "trip_total_est": 985.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+DXB+on+2027-04-12+through+2027-04-19", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/dxb/270412/270419/", "kayak_link": "https://www.kayak.es/flights/MAD-DXB/2027-04-12/2027-04-19?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/dxb/2027-04-12/2027-04-19", "momondo_link": "https://www.momondo.es/flight-search/MAD-DXB/2027-04-12/2027-04-19", "outbound_airline_url": "https://www.emirates.com/es/spanish/", "return_airline_url": "https://www.qatarairways.com/es-es/homepage.html", "booking_link": "https://www.booking.com/searchresults.html?ss=Dub%C3%A1i%2C%20Emiratos%20%C3%81rabes%20Unidos&checkin=2027-04-12&checkout=2027-04-19&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Dub%C3%A1i%2C%20Emiratos%20%C3%81rabes%20Unidos/homes?checkin=2027-04-12&checkout=2027-04-19&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Dub%C3%A1i%2C%20Emiratos%20%C3%81rabes%20Unidos?dates=2027-04-12_2027-04-19", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "MIA", "dest_city": "Miami", "dest_country": "Estados Unidos", "dest_flag": "🇺🇸", "continent": "Norteamérica", "departure_date": "2027-05-11", "return_date": "2027-05-20", "duration_days": 9, "outbound_dep_time": "11:55", "outbound_arr_time": "16:00", "outbound_duration_hours": 9.08, "outbound_duration_str": "9h 04m", "outbound_airline": "Air Europa", "return_dep_time": "20:00", "return_arr_time": "10:45", "return_duration_hours": 8.75, "return_duration_str": "8h 45m", "return_airline": "American Airlines", "different_airlines": true, "price": 350.0, "currency": "EUR", "hotel_price_per_night": 140, "hotel_nights": 9, "hotel_total_est": 1260, "hotel_tier": "Alto", "hotel_note": "Miami", "trip_total_est": 1610.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+MIA+on+2027-05-11+through+2027-05-20", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/mia/270511/270520/", "kayak_link": "https://www.kayak.es/flights/MAD-MIA/2027-05-11/2027-05-20?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/mia/2027-05-11/2027-05-20", "momondo_link": "https://www.momondo.es/flight-search/MAD-MIA/2027-05-11/2027-05-20", "outbound_airline_url": "https://www.aireuropa.com/es/es/home", "return_airline_url": "https://www.aa.com/es-es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Miami%2C%20Estados%20Unidos&checkin=2027-05-11&checkout=2027-05-20&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Miami%2C%20Estados%20Unidos/homes?checkin=2027-05-11&checkout=2027-05-20&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Miami%2C%20Estados%20Unidos?dates=2027-05-11_2027-05-20", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "CUN", "dest_city": "Cancún", "dest_country": "México", "dest_flag": "🇲🇽", "continent": "Latinoamérica", "departure_date": "2027-06-01", "return_date": "2027-06-09", "duration_days": 8, "outbound_dep_time": "13:45", "outbound_arr_time": "18:20", "outbound_duration_hours": 10.58, "outbound_duration_str": "10h 34m", "outbound_airline": "World2Fly", "return_dep_time": "21:00", "return_arr_time": "13:30", "return_duration_hours": 9.5, "return_duration_str": "9h 30m", "return_airline": "Iberojet", "different_airlines": true, "price": 430.0, "currency": "EUR", "hotel_price_per_night": 70, "hotel_nights": 8, "hotel_total_est": 560, "hotel_tier": "Medio", "hotel_note": "Cancún hoteles y resorts", "trip_total_est": 990.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+CUN+on+2027-06-01+through+2027-06-09", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/cun/270601/270609/", "kayak_link": "https://www.kayak.es/flights/MAD-CUN/2027-06-01/2027-06-09?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/cun/2027-06-01/2027-06-09", "momondo_link": "https://www.momondo.es/flight-search/MAD-CUN/2027-06-01/2027-06-09", "outbound_airline_url": "https://www.w2fly.es/", "return_airline_url": "https://www.iberojet.com/", "booking_link": "https://www.booking.com/searchresults.html?ss=Canc%C3%BAn%2C%20M%C3%A9xico&checkin=2027-06-01&checkout=2027-06-09&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Canc%C3%BAn%2C%20M%C3%A9xico/homes?checkin=2027-06-01&checkout=2027-06-09&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Canc%C3%BAn%2C%20M%C3%A9xico?dates=2027-06-01_2027-06-09", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "DEL", "dest_city": "Nueva Delhi", "dest_country": "India", "dest_flag": "🇮🇳", "continent": "Asia", "departure_date": "2027-03-09", "return_date": "2027-03-17", "duration_days": 8, "outbound_dep_time": "09:30", "outbound_arr_time": "22:15", "outbound_duration_hours": 9.75, "outbound_duration_str": "9h 45m", "outbound_airline": "Saudia", "return_dep_time": "03:10", "return_arr_time": "14:00", "return_duration_hours": 10.83, "return_duration_str": "10h 49m", "return_airline": "Etihad Airways", "different_airlines": true, "price": 430.0, "currency": "EUR", "hotel_price_per_night": 30, "hotel_nights": 8, "hotel_total_est": 240, "hotel_tier": "Muy Económico", "hotel_note": "Nueva Delhi", "trip_total_est": 670.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+DEL+on+2027-03-09+through+2027-03-17", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/del/270309/270317/", "kayak_link": "https://www.kayak.es/flights/MAD-DEL/2027-03-09/2027-03-17?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/del/2027-03-09/2027-03-17", "momondo_link": "https://www.momondo.es/flight-search/MAD-DEL/2027-03-09/2027-03-17", "outbound_airline_url": "https://www.saudia.com/es-ES", "return_airline_url": "https://www.etihad.com/es-es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Nueva%20Delhi%2C%20India&checkin=2027-03-09&checkout=2027-03-17&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Nueva%20Delhi%2C%20India/homes?checkin=2027-03-09&checkout=2027-03-17&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Nueva%20Delhi%2C%20India?dates=2027-03-09_2027-03-17", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BOG", "dest_city": "Bogotá", "dest_country": "Colombia", "dest_flag": "🇨🇴", "continent": "Latinoamérica", "departure_date": "2027-04-13", "return_date": "2027-04-21", "duration_days": 8, "outbound_dep_time": "12:15", "outbound_arr_time": "16:45", "outbound_duration_hours": 10.5, "outbound_duration_str": "10h 30m", "outbound_airline": "Avianca", "return_dep_time": "22:40", "return_arr_time": "14:30", "return_duration_hours": 9.83, "return_duration_str": "9h 49m", "return_airline": "Air Europa", "different_airlines": true, "price": 480.0, "currency": "EUR", "hotel_price_per_night": 38, "hotel_nights": 8, "hotel_total_est": 304, "hotel_tier": "Económico", "hotel_note": "Bogotá muy económico", "trip_total_est": 784.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BOG+on+2027-04-13+through+2027-04-21", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bog/270413/270421/", "kayak_link": "https://www.kayak.es/flights/MAD-BOG/2027-04-13/2027-04-21?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bog/2027-04-13/2027-04-21", "momondo_link": "https://www.momondo.es/flight-search/MAD-BOG/2027-04-13/2027-04-21", "outbound_airline_url": "https://www.avianca.com/es/", "return_airline_url": "https://www.aireuropa.com/es/es/home", "booking_link": "https://www.booking.com/searchresults.html?ss=Bogot%C3%A1%2C%20Colombia&checkin=2027-04-13&checkout=2027-04-21&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Bogot%C3%A1%2C%20Colombia/homes?checkin=2027-04-13&checkout=2027-04-21&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Bogot%C3%A1%2C%20Colombia?dates=2027-04-13_2027-04-21", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "BKK", "dest_city": "Bangkok (Suvarnabhumi)", "dest_country": "Tailandia", "dest_flag": "🇹🇭", "continent": "Asia", "departure_date": "2027-05-17", "return_date": "2027-05-26", "duration_days": 9, "outbound_dep_time": "10:50", "outbound_arr_time": "06:15", "outbound_duration_hours": 13.41, "outbound_duration_str": "13h 24m", "outbound_airline": "Qatar Airways", "return_dep_time": "20:30", "return_arr_time": "07:45", "return_duration_hours": 14.25, "return_duration_str": "14h 15m", "return_airline": "Emirates", "different_airlines": true, "price": 490.0, "currency": "EUR", "hotel_price_per_night": 35, "hotel_nights": 9, "hotel_total_est": 315, "hotel_tier": "Muy Económico", "hotel_note": "Bangkok excelente relación calidad/precio", "trip_total_est": 805.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+BKK+on+2027-05-17+through+2027-05-26", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/bkk/270517/270526/", "kayak_link": "https://www.kayak.es/flights/MAD-BKK/2027-05-17/2027-05-26?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/bkk/2027-05-17/2027-05-26", "momondo_link": "https://www.momondo.es/flight-search/MAD-BKK/2027-05-17/2027-05-26", "outbound_airline_url": "https://www.qatarairways.com/es-es/homepage.html", "return_airline_url": "https://www.emirates.com/es/spanish/", "booking_link": "https://www.booking.com/searchresults.html?ss=Bangkok%20%28Suvarnabhumi%29%2C%20Tailandia&checkin=2027-05-17&checkout=2027-05-26&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Bangkok%20%28Suvarnabhumi%29%2C%20Tailandia/homes?checkin=2027-05-17&checkout=2027-05-26&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Bangkok%20%28Suvarnabhumi%29%2C%20Tailandia?dates=2027-05-17_2027-05-26", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "MEX", "dest_city": "Ciudad de México", "dest_country": "México", "dest_flag": "🇲🇽", "continent": "Latinoamérica", "departure_date": "2027-05-18", "return_date": "2027-05-27", "duration_days": 9, "outbound_dep_time": "14:40", "outbound_arr_time": "19:50", "outbound_duration_hours": 12.16, "outbound_duration_str": "12h 09m", "outbound_airline": "Aeroméxico", "return_dep_time": "22:55", "return_arr_time": "16:20", "return_duration_hours": 10.41, "return_duration_str": "10h 24m", "return_airline": "Iberia", "different_airlines": true, "price": 520.0, "currency": "EUR", "hotel_price_per_night": 50, "hotel_nights": 9, "hotel_total_est": 450, "hotel_tier": "Económico", "hotel_note": "Ciudad de México", "trip_total_est": 970.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+MEX+on+2027-05-18+through+2027-05-27", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/mex/270518/270527/", "kayak_link": "https://www.kayak.es/flights/MAD-MEX/2027-05-18/2027-05-27?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/mex/2027-05-18/2027-05-27", "momondo_link": "https://www.momondo.es/flight-search/MAD-MEX/2027-05-18/2027-05-27", "outbound_airline_url": "https://www.google.com/search?q=Aerom%C3%A9xico%20vuelos%20oficiales", "return_airline_url": "https://www.iberia.com/es/", "booking_link": "https://www.booking.com/searchresults.html?ss=Ciudad%20de%20M%C3%A9xico%2C%20M%C3%A9xico&checkin=2027-05-18&checkout=2027-05-27&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Ciudad%20de%20M%C3%A9xico%2C%20M%C3%A9xico/homes?checkin=2027-05-18&checkout=2027-05-27&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Ciudad%20de%20M%C3%A9xico%2C%20M%C3%A9xico?dates=2027-05-18_2027-05-27", "deal_type": null, "price_diff": 0.0}, {"origin": "MAD", "origin_city": "Madrid", "origin_country": "España", "origin_flag": "🇪🇸", "destination": "NRT", "dest_city": "Tokio (Narita)", "dest_country": "Japón", "dest_flag": "🇯🇵", "continent": "Asia", "departure_date": "2027-09-06", "return_date": "2027-09-15", "duration_days": 9, "outbound_dep_time": "11:55", "outbound_arr_time": "08:50", "outbound_duration_hours": 13.91, "outbound_duration_str": "13h 54m", "outbound_airline": "Air China", "return_dep_time": "22:30", "return_arr_time": "08:20", "return_duration_hours": 14.83, "return_duration_str": "14h 49m", "return_airline": "Cathay Pacific", "different_airlines": true, "price": 599.0, "currency": "EUR", "hotel_price_per_night": 75, "hotel_nights": 9, "hotel_total_est": 675, "hotel_tier": "Medio", "hotel_note": "Tokio", "trip_total_est": 1274.0, "direct_link": "https://www.google.com/travel/flights?q=flights+from+MAD+to+NRT+on+2027-09-06+through+2027-09-15", "skyscanner_link": "https://www.skyscanner.es/transport/vuelos/mad/nrt/270906/270915/", "kayak_link": "https://www.kayak.es/flights/MAD-NRT/2027-09-06/2027-09-15?sort=bestflight_a", "kiwi_link": "https://www.kiwi.com/es/search/tiles/mad/nrt/2027-09-06/2027-09-15", "momondo_link": "https://www.momondo.es/flight-search/MAD-NRT/2027-09-06/2027-09-15", "outbound_airline_url": "https://www.airchina.es/ES/ES/Home", "return_airline_url": "https://www.cathaypacific.com/cx/es_ES.html", "booking_link": "https://www.booking.com/searchresults.html?ss=Tokio%20%28Narita%29%2C%20Jap%C3%B3n&checkin=2027-09-06&checkout=2027-09-15&group_adults=2&no_rooms=1&group_children=0", "airbnb_link": "https://www.airbnb.es/s/Tokio%20%28Narita%29%2C%20Jap%C3%B3n/homes?checkin=2027-09-06&checkout=2027-09-15&adults=2", "google_hotels_link": "https://www.google.com/travel/hotels/Tokio%20%28Narita%29%2C%20Jap%C3%B3n?dates=2027-09-06_2027-09-15", "deal_type": null, "price_diff": 0.0}];
+
+    function timeToMinutes(t) {
+      if (!t || !t.includes(':')) return -1;
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function matchesTimeWindow(timeStr, windowKey) {
+      if (windowKey === 'ALL') return true;
+      const mins = timeToMinutes(timeStr);
+      if (mins < 0) return true;
+
+      if (windowKey === 'morning') return mins >= 6 * 60 && mins < 12 * 60;
+      if (windowKey === 'midday') return mins >= 12 * 60 && mins < 16 * 60;
+      if (windowKey === 'afternoon') return mins >= 16 * 60 && mins < 20 * 60;
+      if (windowKey === 'night') return mins >= 20 * 60;
+      if (windowKey === 'after_16') return mins >= 16 * 60;
+      if (windowKey === 'after_18') return mins >= 18 * 60;
+      return true;
+    }
+
+    function renderCards(list) {
+      const grid = document.getElementById('flightGrid');
+      grid.innerHTML = '';
+      
+      list.forEach(f => {
+        const card = document.createElement('div');
+        const isDrop = f.deal_type === 'price_drop';
+        const isNew = f.deal_type === 'new_deal';
+        card.className = 'card' + (isDrop ? ' highlight-drop' : (isNew ? ' highlight-new' : ''));
+        
+        let alertBadgeHtml = '';
+        if (isDrop) {
+          alertBadgeHtml = `<span class="badge alert-badge">📉 ¡Bajó ${f.price_diff} €!</span>`;
+        } else if (isNew) {
+          alertBadgeHtml = `<span class="badge alert-badge">✨ ¡Nuevo Chollo!</span>`;
+        }
+
+        card.innerHTML = `
+          <div>
+            <div class="card-top">
+              <div>
+                <div class="dest-title">${f.dest_flag} ${f.dest_city}</div>
+                <div class="dest-country">${f.dest_country} [${f.destination}]</div>
+                <div class="badges">
+                  ${alertBadgeHtml}
+                  <span class="badge continent-badge">${f.continent}</span>
+                  <span class="badge duration-badge">⏱️ ${f.duration_days} días</span>
+                  ${f.different_airlines ? '<span class="badge diff-badge">🔀 Cías. Distintas</span>' : ''}
+                </div>
+              </div>
+              <div class="price-box">
+                <div class="price-flight">${f.price} ${f.currency}</div>
+                <div class="price-label">Vuelo I/V</div>
+              </div>
+            </div>
+
+            <!-- Tramo Ida -->
+            <div class="flight-leg">
+              <div class="leg-header">
+                <span>🛫 IDA • ${f.departure_date}</span>
+                <div>
+                  <span class="leg-airline">${f.outbound_airline}</span>
+                  <a href="${f.outbound_airline_url}" target="_blank" rel="noopener" class="airline-direct-link" title="Web oficial de la aerolínea">Web Oficial ↗</a>
+                </div>
+              </div>
+              <div class="leg-times">
+                <div>
+                  <span class="time-val">${f.outbound_dep_time}</span>
+                  <span style="color:var(--text-muted); font-size:0.85rem;"> ➔ </span>
+                  <span class="time-val">${f.outbound_arr_time}</span>
+                </div>
+                <span class="leg-duration">⌛ ${f.outbound_duration_str}</span>
+              </div>
+            </div>
+
+            <!-- Tramo Vuelta -->
+            <div class="flight-leg return">
+              <div class="leg-header">
+                <span>🛬 VUELTA • ${f.return_date}</span>
+                <div>
+                  <span class="leg-airline">${f.return_airline}</span>
+                  <a href="${f.return_airline_url}" target="_blank" rel="noopener" class="airline-direct-link" title="Web oficial de la aerolínea">Web Oficial ↗</a>
+                </div>
+              </div>
+              <div class="leg-times">
+                <div>
+                  <span class="time-val">${f.return_dep_time}</span>
+                  <span style="color:var(--text-muted); font-size:0.85rem;"> ➔ </span>
+                  <span class="time-val">${f.return_arr_time}</span>
+                </div>
+                <span class="leg-duration">⌛ ${f.return_duration_str}</span>
+              </div>
+            </div>
+
+            <!-- Estimación de Alojamiento -->
+            <div class="hotel-section">
+              <div class="hotel-header">
+                <span>🏨 Alojamiento Estimado (${f.hotel_tier})</span>
+                <span>~${f.hotel_price_per_night} € / noche</span>
+              </div>
+              <div class="hotel-breakdown">
+                <span style="color:var(--text-muted);">Estancia ${f.hotel_nights} noches:</span>
+                <strong style="color:var(--hotel-color);">~${f.hotel_total_est} €</strong>
+              </div>
+              <div class="trip-total-bar">
+                <span>Presupuesto Total (Vuelo + Hotel):</span>
+                <span class="trip-total-val">~${f.trip_total_est} €</span>
+              </div>
+              <div class="hotel-links">
+                <a href="${f.booking_link}" target="_blank" rel="noopener" class="hotel-btn">Booking.com ↗</a>
+                <a href="${f.airbnb_link}" target="_blank" rel="noopener" class="hotel-btn">Airbnb ↗</a>
+                <a href="${f.google_hotels_link}" target="_blank" rel="noopener" class="hotel-btn">Google Hotels ↗</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Múltiples Buscadores de Vuelos -->
+          <div class="multi-search">
+            <div class="multi-search-title">🔍 Comprobar y reservar vuelos en:</div>
+            <div class="provider-grid">
+              <a href="${f.direct_link}" target="_blank" rel="noopener" class="provider-btn google">Google</a>
+              <a href="${f.skyscanner_link}" target="_blank" rel="noopener" class="provider-btn skyscanner">Skyscanner</a>
+              <a href="${f.kayak_link}" target="_blank" rel="noopener" class="provider-btn kayak">Kayak</a>
+              <a href="${f.kiwi_link}" target="_blank" rel="noopener" class="provider-btn kiwi">Kiwi</a>
+              <a href="${f.momondo_link}" target="_blank" rel="noopener" class="provider-btn momondo">Momondo</a>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.getElementById('counterText').textContent = `Mostrando ${list.length} opciones`;
+    }
+
+    function filterFlights() {
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+      const continent = document.getElementById('continentFilter').value;
+      const sortBy = document.getElementById('sortCriteria').value;
+      const maxFPrice = parseFloat(document.getElementById('maxFlightPrice').value);
+      const maxTPrice = parseFloat(document.getElementById('maxTripPrice').value);
+      const maxHOut = parseFloat(document.getElementById('maxHoursOutbound').value);
+      const maxHRet = parseFloat(document.getElementById('maxHoursReturn').value);
+      const outDepWindow = document.getElementById('outDepWindow').value;
+      const retDepWindow = document.getElementById('retDepWindow').value;
+      const reqDiff = document.getElementById('requireDiffAirlines').checked;
+      const onlyDeals = document.getElementById('onlyDeals').checked;
+
+      let filtered = flights.filter(f => {
+        if (onlyDeals && !f.deal_type) return false;
+
+        if (search) {
+          const match = f.dest_city.toLowerCase().includes(search) || 
+                        f.dest_country.toLowerCase().includes(search) ||
+                        f.destination.toLowerCase().includes(search) ||
+                        f.outbound_airline.toLowerCase().includes(search) ||
+                        f.return_airline.toLowerCase().includes(search);
+          if (!match) return false;
+        }
+
+        if (continent !== 'ALL' && f.continent !== continent) return false;
+        if (!isNaN(maxFPrice) && f.price > maxFPrice) return false;
+        if (!isNaN(maxTPrice) && f.trip_total_est > maxTPrice) return false;
+        if (!isNaN(maxHOut) && f.outbound_duration_hours > maxHOut) return false;
+        if (!isNaN(maxHRet) && f.return_duration_hours > maxHRet) return false;
+        if (!matchesTimeWindow(f.outbound_dep_time, outDepWindow)) return false;
+        if (!matchesTimeWindow(f.return_dep_time, retDepWindow)) return false;
+        if (reqDiff && !f.different_airlines) return false;
+
+        return true;
+      });
+
+      if (sortBy === 'trip_total') {
+        filtered.sort((a, b) => a.trip_total_est - b.trip_total_est);
+      } else if (sortBy === 'hotel_price') {
+        filtered.sort((a, b) => a.hotel_price_per_night - b.hotel_price_per_night);
+      } else {
+        filtered.sort((a, b) => a.price - b.price);
+      }
+
+      renderCards(filtered);
+    }
+
+    // Auto-recarga suave
+    let remainingSec = 120;
+    const timerElem = document.getElementById('timerSec');
+    setInterval(() => {
+      remainingSec--;
+      if (remainingSec <= 0) {
+        window.location.reload();
+      } else if (timerElem) {
+        timerElem.textContent = remainingSec + 's';
+      }
+    }, 1000);
+
+    // Render inicial
+    renderCards(flights);
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Archivo con credenciales privadas (se configuran en GitHub Secrets)
+.env
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+
+# Archivos temporales
+*.log
