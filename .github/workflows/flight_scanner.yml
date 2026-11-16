@@ -1,0 +1,77 @@
+name: Monitor de Vuelos 2027
+
+on:
+  schedule:
+    # Se ejecuta automáticamente cada 2 horas (sin coste y con el PC apagado)
+    - cron: '0 */2 * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente con un clic en GitHub
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  scan-and-alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar escaneo de vuelos y enviar alertas a Telegram
+        env:
+          AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
+          AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
+          AMADEUS_ENV: ${{ secrets.AMADEUS_ENV || 'production' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DEFAULT_ORIGIN: 'MAD'
+        run: |
+          python -c "
+          from flight_scanner import fetch_flights
+          from tracker import analyze_new_deals
+          from notifier import send_deal_alert
+          from reporter import export_to_html, export_to_csv
+
+          print('🔍 Escaneando vuelos...')
+          flights, _ = fetch_flights('MAD', 2027, 5, 9)
+          deals, enriched = analyze_new_deals(flights, alert_max_price=100.0)
+          
+          export_to_html(enriched, 'MAD', filename='index.html')
+          export_to_html(enriched, 'MAD', filename='comparador_vuelos_2027.html')
+          export_to_csv(enriched)
+
+          if deals:
+              print(f'🚨 {len(deals)} ofertas detectadas. Enviando a Telegram...')
+              for deal in deals:
+                  send_deal_alert(deal)
+          else:
+              print('ℹ️ Sin nuevas ofertas en esta ronda.')
+          "
+
+      - name: Guardar historial de precios para futuros escaneos
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add flight_history.json
+          git commit -m "Auto: Actualizar historial de precios [skip ci]" || echo "Sin cambios en el historial"
+          git push || echo "No se pudo hacer push del historial"
+
+      - name: Publicar Dashboard en GitHub Pages (Accesible desde tu móvil)
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: .
+          branch: gh-pages
+          clean: false
