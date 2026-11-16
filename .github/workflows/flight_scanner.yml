@@ -40,34 +40,61 @@ jobs:
           DEFAULT_ORIGIN: 'MAD'
         run: |
           python -c "
+          import os
           from flight_scanner import fetch_flights
           from tracker import analyze_new_deals
           from notifier import send_deal_alert
           from reporter import export_to_html, export_to_csv
+          from settings_manager import (
+              load_settings,
+              save_settings,
+              check_and_process_telegram_commands,
+              send_welcome_and_top_deals
+          )
 
+          token = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
+          chat_id = os.getenv('TELEGRAM_CHAT_ID', '').strip()
+
+          print(f'🔍 Comprobando Telegram: Token={bool(token)}, ChatID={chat_id or \"(VACIO)\"}')
+
+          # 1. Procesar comandos enviados desde Telegram (ej: /limite 350)
+          settings = check_and_process_telegram_commands(token, chat_id)
+          limit_price = settings.get('max_alert_price', 500.0)
+          print(f'🎯 Límite actual para nuevos chollos: {limit_price:.0f} €')
+
+          # 2. Escanear vuelos
           print('🔍 Escaneando vuelos...')
           flights, _ = fetch_flights('MAD', 2027, 5, 9)
-          deals, enriched = analyze_new_deals(flights, alert_max_price=100.0)
+
+          # 3. Enviar bienvenida y los 3 chollos actuales al móvil
+          if not settings.get('welcome_sent', False):
+              print('👋 Enviando bienvenida y Top 3 chollos al móvil...')
+              send_welcome_and_top_deals(flights, token, chat_id, limit=limit_price)
+              settings['welcome_sent'] = True
+              save_settings(settings)
+
+          # 4. Analizar bajadas de precio y nuevos chollos bajo el límite
+          deals, enriched = analyze_new_deals(flights, alert_max_price=limit_price)
           
           export_to_html(enriched, 'MAD', filename='index.html')
           export_to_html(enriched, 'MAD', filename='comparador_vuelos_2027.html')
           export_to_csv(enriched)
 
           if deals:
-              print(f'🚨 {len(deals)} ofertas detectadas. Enviando a Telegram...')
+              print(f'🚨 {len(deals)} ofertas detectadas (bajadas o <= {limit_price:.0f}€). Enviando alertas...')
               for deal in deals:
-                  send_deal_alert(deal)
+                  send_deal_alert(deal, bot_token=token)
           else:
-              print('ℹ️ Sin nuevas ofertas en esta ronda.')
+              print('ℹ️ Sin variaciones de precio en esta ronda.')
           "
 
-      - name: Guardar historial de precios para futuros escaneos
+      - name: Guardar historial y ajustes para futuros escaneos
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add flight_history.json
-          git commit -m "Auto: Actualizar historial de precios [skip ci]" || echo "Sin cambios en el historial"
-          git push || echo "No se pudo hacer push del historial"
+          git add flight_history.json user_settings.json || true
+          git commit -m "Auto: Actualizar historial y ajustes [skip ci]" || echo "Sin cambios"
+          git push || echo "No se pudo hacer push"
 
       - name: Publicar Dashboard en GitHub Pages (Accesible desde tu móvil)
         uses: JamesIves/github-pages-deploy-action@v4
